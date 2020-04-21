@@ -14,8 +14,43 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path
+from django.urls import path, include
+import xadmin
+from django.conf.urls.static import static
+from django.conf import settings
+from django.views.generic import TemplateView
+from blog.sitemaps import ArticleSitemap, CategorySitemap, TagSitemap
+from django.views.generic import RedirectView
+
+from django.contrib.sitemaps.views import sitemap
+from blog.feeds import AllArticleRssFeed
+from blog.views import robots
+xadmin.autodiscover()
+
+# 网站地图
+sitemaps = {
+    'articles': ArticleSitemap,
+    'tags': TagSitemap,
+    'categories': CategorySitemap
+}
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
-]
+    path('favicon.ico', RedirectView.as_view(url='/static/blog/img/kang.ico')),
+    path('admin/', xadmin.site.urls, name="admin"),
+    path('markdown/', include('markdown_editor.urls')),
+    path('accounts/', include('allauth.urls')),  # allauth
+    path('accounts/', include(('oauth.urls', 'oauth'), namespace='oauth')),  # oauth,只展现一个用户登录界面
+    path('', include(('blog.urls', 'blog'), namespace='blog')),  # blog
+    path('comment/',include(('comment.urls', 'comment'),namespace='comment')), # comment
+    path('robots.txt', robots, name='robots'), # robots
+    path('sitemap.xml', sitemap, {'sitemaps': sitemaps}, name='django.contrib.sitemaps.views.sitemap'), # 网站地图
+    path('feed/', AllArticleRssFeed(), name='rss'),   # rss订阅
+
+]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)  # 加入这个才能显示media文件
+
+if settings.API_FLAG:
+    from api.urls import router
+    urlpatterns.append(path('api/v1/',include((router.urls, router.root_view_name),namespace='api')))    # restframework
+
+if settings.TOOL_FLAG:
+    urlpatterns.append(path('tool/', include(('tool.urls', 'tool'),namespace='tool')))    # tool
